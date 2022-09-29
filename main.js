@@ -17,7 +17,7 @@
   
     let webGLTextureIdx = 0;
     let webGLTextureMap = {};
-    let targetRenderingCtx = WebGL2RenderingContext || WebGLRenderingContext;
+    let targetRenderingCtx = WebGLRenderingContext || WebGL2RenderingContext; // todo auto choose context
   
     //createTexture
     let _GLCreateTexture = targetRenderingCtx.prototype.createTexture;
