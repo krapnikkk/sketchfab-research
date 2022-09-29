@@ -13,7 +13,7 @@
     const MIN_TEXTURE_WIDTH = 256,
       MIN_TEXTURE_HEIGHT = 256;
     let _log = console.log;
-    _log("webgl texture dump");
+    _log("=======SketchfabTextureDump=======");
   
     let webGLTextureIdx = 0;
     let webGLTextureMap = {};
