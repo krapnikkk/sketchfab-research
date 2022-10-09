@@ -3,7 +3,7 @@
 // @namespace   Violentmonkey Scripts
 // @match       *://*.sketchfab.com/*
 // @grant       none
-// @version     0.0.2
+// @version     0.0.3
 // @author      krapnik
 // @description 2022/9/29 12:02:46
 // @license     MIT
@@ -21,9 +21,9 @@
   let targetRenderingCtx = WebGLRenderingContext; // todo auto choose context
 
   //createTexture
-  let _GLCreateTexture = targetRenderingCtx.prototype.createTexture;
+  let _glCreateTexture = targetRenderingCtx.prototype.createTexture;
   targetRenderingCtx.prototype.createTexture = function (...args) {
-    let texture = _GLCreateTexture.apply(this, args);
+    let texture = _glCreateTexture.apply(this, args);
     texture.name = webGLTextureIdx;
     texture.gl = this;
     webGLTextureMap[`${webGLTextureIdx}`] = texture;
@@ -32,24 +32,24 @@
   };
 
   //bindTexture
-  let _GBBindTexture = targetRenderingCtx.prototype.bindTexture;
+  let _glBindTexture = targetRenderingCtx.prototype.bindTexture;
   targetRenderingCtx.prototype.bindTexture = function (...args) {
     let target = args[0],texture = args[1];
     if (texture) {
         texture.target = target;
     }
-    _GBBindTexture.apply(this, args);
+    _glBindTexture.apply(this, args);
   };
 
   //texImage
-  let _GLTexImage2D = targetRenderingCtx.prototype.texImage2D;
+  let _glTexImage2D = targetRenderingCtx.prototype.texImage2D;
   targetRenderingCtx.prototype.texImage2D = function (...args) {
       let texture = this.getParameter(this.TEXTURE_BINDING_2D) || this.getParameter(this.TEXTURE_BINDING_CUBE_MAP);
       let argments = parseTexImage2dArgs(args);
       if(texture.target == argments.target){
         texture.args = argments
       }
-    _GLTexImage2D.apply(this, args);
+    _glTexImage2D.apply(this, args);
   };
 
   function parseTexImage2dArgs(args) {
@@ -91,7 +91,7 @@
       height % 2 === 0 &&
       target === gl.TEXTURE_2D
     ) {
-      var fb = gl.createFramebuffer();
+      let fb = gl.createFramebuffer();
       gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
       gl.framebufferTexture2D(
         gl.FRAMEBUFFER,
@@ -104,13 +104,13 @@
       if (
         framebufferStatus == gl.FRAMEBUFFER_COMPLETE
       ) {
-        var pixels = new Uint8Array(width * height * 4);
+        let pixels = new Uint8Array(width * height * 4);
         gl.readPixels(0, 0, width, height, gl.RGBA, type, pixels);
-        var canvas = document.createElement("canvas");
+        let canvas = document.createElement("canvas");
         canvas.width = width;
         canvas.height = height;
-        var context = canvas.getContext("2d");
-        var imageData = context.createImageData(width, height);
+        let context = canvas.getContext("2d");
+        let imageData = context.createImageData(width, height);
         imageData.data.set(flipY(pixels, width, height));
         context.putImageData(imageData, 0, 0);
         downFile(canvas.toDataURL());
@@ -138,9 +138,9 @@
   }
 
   function downFile(url) {
-    var newWin = window.open("", "_blank");
-    var anchor = document.createElement("a");
-    var fileName = `${Date.now()}.png`;
+    let newWin = window.open("", "_blank");
+    let anchor = document.createElement("a");
+    let fileName = `${Date.now()}.png`;
     anchor.href = url;
     anchor.setAttribute("download", fileName);
     newWin.document.body.appendChild(anchor);
