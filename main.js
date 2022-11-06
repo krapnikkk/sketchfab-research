@@ -4,31 +4,33 @@
 // @match       *://*.sketchfab.com/3d-models/**
 // @match       *://*.sketchfab.com/models/**
 // @grant       none
-// @version     0.0.3
+// @version     0.0.5
 // @author      krapnik
 // @description 2022/9/29 12:02:46
 // @license     MIT
 // @run-at      document-start
 // ==/UserScript==
 (function () {
+  console.log("=======SketchfabTextureDump=======");
   const MIN_TEXTURE_WIDTH = 256,
     MIN_TEXTURE_HEIGHT = 256;
   let _log = console.log;
   let _warn = console.warn;
-  _log("=======SketchfabTextureDump=======");
   let model_name = location.pathname.split("/")[2];
   let model_name_arr = model_name.split("-");
   let model_id = model_name_arr[model_name_arr.length - 1];
+  let downloadCnt = 0;
+  let originTextureMap = [];
   if (!model_id) {
-    _warn("can't find modelId!");
+    _warn("can't find model_id!");
     return;
   } else {
-    _log("this model_id id:", model_id);
+    _log("model_id:", model_id);
   }
-
-  setTimeout(() => {
+  window.onload = () => {
+    originTextureMap = window.prefetchedData[`/i/models/${model_id}/textures?optimized=1`].results || [];
     addDownloadBtn();
-  }, 5000)
+  }
 
   function addDownloadBtn() {
     let btn = document.createElement("button");
@@ -69,6 +71,7 @@
   //texImage
   let lstTexture;
   let _GLTexImage2D = targetRenderingCtx.prototype.texImage2D;
+  let hasCoverTex = 0;
   targetRenderingCtx.prototype.texImage2D = function (...args) {
     let texture = this.getParameter(this.TEXTURE_BINDING_2D) || this.getParameter(this.TEXTURE_BINDING_CUBE_MAP);
     let argments = parseTexImage2dArgs(args);
@@ -78,13 +81,15 @@
       if (
         width > MIN_TEXTURE_WIDTH &&
         height > MIN_TEXTURE_HEIGHT &&
-        width % 2 === 0 &&
-        height % 2 === 0 &&
+        (width & width - 1) === 0 &&
+        (height & height - 1) === 0 &&
         texture.target === this.TEXTURE_2D
       ) {
         if (src) {
           texture.src = argments.src;
           lstTexture.lst = texture.name;
+          hasCoverTex++;
+          _log(`origin texture cover count:${hasCoverTex}`);
         }
         lstTexture = texture;
       }
@@ -127,8 +132,8 @@
     if (
       width > MIN_TEXTURE_WIDTH &&
       height > MIN_TEXTURE_HEIGHT &&
-      width % 2 === 0 &&
-      height % 2 === 0 &&
+      (width & width - 1) === 0 &&
+      (height & height - 1) === 0 &&
       target === gl.TEXTURE_2D && !src
     ) {
       let fb = gl.createFramebuffer();
@@ -145,13 +150,15 @@
         framebufferStatus == gl.FRAMEBUFFER_COMPLETE
       ) {
         let fileName = `${Date.now()}.png`;
+        let originName = fileName;
         let originTex = webGLTextureMap[lst];
         if (originTex) {
           if (originTex.src) {
             let path = originTex.src.split("/");
             let uid = path[path.length - 2];
-            fileName = getNameById(uid);
+            originName = getNameById(uid);
           }
+          if (fileName == originName || !originName) { return }
           let pixels = new Uint8Array(width * height * 4);
           gl.readPixels(0, 0, width, height, gl.RGBA, type, pixels);
           let canvas = document.createElement("canvas");
@@ -161,7 +168,8 @@
           let imageData = context.createImageData(width, height);
           imageData.data.set(flipY(pixels, width, height));
           context.putImageData(imageData, 0, 0);
-          downLoadByLink(canvas.toDataURL(), fileName); // todo format
+          downloadCnt++;
+          downLoadByLink(canvas.toDataURL(), originName); // todo format
         }
       }
     }
@@ -181,16 +189,20 @@
   }
 
   function dumpWebGLTextureData() {
+    downloadCnt = 0;
     for (let key in webGLTextureMap) {
       readWebTextureData(webGLTextureMap[key]);
+    }
+    if (downloadCnt == originTextureMap.length) {
+      _log(`【dump texture:${downloadCnt}/${originTextureMap.length}】 success！`);
+    } else {
+      _log(`【dump texture:${downloadCnt}/${originTextureMap.length}】some texture doesn't cover,plz move the camera or open the [Model-Inspector] and view the textures!`);
     }
   }
 
   function getNameById(uid) {
-    let name = `${Date.now()}.png`;
-    let key = `/i/models/${model_id}/textures?optimized=1`;
-    let textureMap = window.prefetchedData[key].results || [];
-    let texture = textureMap.find((t) => {
+    let name;
+    let texture = originTextureMap.find((t) => {
       return t.uid == uid;
     });
     if (texture) {
@@ -199,20 +211,9 @@
     return name;
   }
 
-  function downFile(url) {
-    let newWin = window.open("", "_blank");
-    let anchor = document.createElement("a");
-    let fileName = `${Date.now()}.png`;
-    anchor.href = url;
-    anchor.setAttribute("download", fileName);
-    newWin.document.body.appendChild(anchor);
-    anchor.click();
-    newWin.close();
-  }
 
   function downLoadByLink(url, filename) {
-    let link,
-      evt;
+    let link, evt;
     link = document.createElement('a');
     link.href = url;
     filename && link.setAttribute('download', filename);
