@@ -4,7 +4,7 @@
 // @match       *://*.sketchfab.com/3d-models/**
 // @match       *://*.sketchfab.com/models/**
 // @grant       none
-// @version     0.0.5
+// @version     0.0.7
 // @author      krapnik
 // @description 2022/9/29 12:02:46
 // @license     MIT
@@ -20,16 +20,42 @@
   let model_name_arr = model_name.split("-");
   let model_id = model_name_arr[model_name_arr.length - 1];
   let downloadCnt = 0;
-  let originTextureMap = [];
+  let originTextureArr = [];
   if (!model_id) {
     _warn("can't find model_id!");
     return;
   } else {
     _log("model_id:", model_id);
   }
+
   window.onload = () => {
-    originTextureMap = window.prefetchedData[`/i/models/${model_id}/textures?optimized=1`].results || [];
+    let results = window.prefetchedData[`/i/models/${model_id}/textures?optimized=1`].results;
+    coverTexture(results); // quality high
+    Object.defineProperty(window.prefetchedData[`/i/models/${model_id}/textures?optimized=1`],"results", {
+      get:()=>{
+        return results;
+      }
+    })
+    originTextureArr = window.prefetchedData[`/i/models/${model_id}/textures?optimized=1`].results || [];
     addDownloadBtn();
+  }
+
+  function coverTexture(results){
+    results.forEach((texture)=>{
+      let images = texture.images;
+      let img = images[images.length-2];
+      texture.url = img.url;
+      images.forEach((item,idx)=>{
+        images[idx] = img;
+      })
+    })
+  }
+
+  function getFileNameByLink(url){
+    let image = window.prefetchedData[`/i/models/${model_id}/textures?optimized=1`].results.find((texture)=>{
+      return texture.url == url
+    });
+    return image?image.name:`${Date.now()}.png`;
   }
 
   function addDownloadBtn() {
@@ -48,9 +74,9 @@
 
 
   //createTexture
-  let _GLCreateTexture = targetRenderingCtx.prototype.createTexture;
+  let glCreateTexture = targetRenderingCtx.prototype.createTexture;
   targetRenderingCtx.prototype.createTexture = function (...args) {
-    let texture = _GLCreateTexture.apply(this, args);
+    let texture = glCreateTexture.apply(this, args);
     texture.name = webGLTextureIdx;
     texture.gl = this;
     webGLTextureMap[`${webGLTextureIdx}`] = texture;
@@ -59,19 +85,25 @@
   };
 
   //bindTexture
-  let _GBBindTexture = targetRenderingCtx.prototype.bindTexture;
+  let glBindTexture = targetRenderingCtx.prototype.bindTexture;
   targetRenderingCtx.prototype.bindTexture = function (...args) {
-    let target = args[0], texture = args[1];
-    if (texture) {
+    let target = args[0], texture = args[1],flag = args[2];
+    if (!flag&&texture) {
       texture.target = target;
     }
-    _GBBindTexture.apply(this, args);
+    glBindTexture.apply(this, args);
+  };
+
+  let glDeleteTexture = targetRenderingCtx.prototype.deleteTexture;
+  targetRenderingCtx.prototype.deleteTexture = function (...args) {
+    // do notthing
   };
 
   //texImage
   let lstTexture;
-  let _GLTexImage2D = targetRenderingCtx.prototype.texImage2D;
+  let glTexImage2D = targetRenderingCtx.prototype.texImage2D;
   let hasCoverTex = 0;
+  let isAllTextureCover = false;
   targetRenderingCtx.prototype.texImage2D = function (...args) {
     let texture = this.getParameter(this.TEXTURE_BINDING_2D) || this.getParameter(this.TEXTURE_BINDING_CUBE_MAP);
     let argments = parseTexImage2dArgs(args);
@@ -85,16 +117,20 @@
         (height & height - 1) === 0 &&
         texture.target === this.TEXTURE_2D
       ) {
-        if (src) {
+        if (src&&!isAllTextureCover) {
+          let textureName = getFileNameByLink(src);
           texture.src = argments.src;
           lstTexture.lst = texture.name;
           hasCoverTex++;
-          _log(`origin texture cover count:${hasCoverTex}`);
+          _log(`【origin texture cover】 count:${hasCoverTex},name:${textureName}`);
+          if(originTextureArr.length == hasCoverTex){
+            isAllTextureCover = true;
+          }
         }
         lstTexture = texture;
       }
     }
-    _GLTexImage2D.apply(this, args);
+    glTexImage2D.apply(this, args);
   };
 
   function parseTexImage2dArgs(args) {
@@ -102,7 +138,7 @@
     if (args.length == 6) {
       let [target, level, internalformat, format, type, source] = args;
       let { width, height, src } = source;
-      argments = { target, level, width, height, format, type, src };
+      argments = { target, level, width, height,internalformat, format, type, src };
     } else if (args.length == 9) {
       let [
         target,
@@ -115,7 +151,7 @@
         type,
         pixels,
       ] = args;
-      argments = { target, level, width, height, format, type };
+      argments = { target, level, width, height, format,internalformat, type };
     } else {
       let [target] = args;
       argments = { target };
@@ -128,13 +164,14 @@
     if (!args) { // todo maybe other func bind
       return
     }
-    let { level, width, height, format, type } = args;
+    let { level, width, height, format,internalformat, type } = args;
     if (
       width > MIN_TEXTURE_WIDTH &&
       height > MIN_TEXTURE_HEIGHT &&
       (width & width - 1) === 0 &&
       (height & height - 1) === 0 &&
-      target === gl.TEXTURE_2D && !src
+      target === gl.TEXTURE_2D &&
+      !src
     ) {
       let fb = gl.createFramebuffer();
       gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
@@ -153,14 +190,14 @@
         let originName = fileName;
         let originTex = webGLTextureMap[lst];
         if (originTex) {
-          if (originTex.src) {
+          if (originTex&&originTex.src) {
             let path = originTex.src.split("/");
             let uid = path[path.length - 2];
             originName = getNameById(uid);
           }
           if (fileName == originName || !originName) { return }
           let pixels = new Uint8Array(width * height * 4);
-          gl.readPixels(0, 0, width, height, gl.RGBA, type, pixels);
+          gl.readPixels(0, 0, width, height, format, type, pixels);
           let canvas = document.createElement("canvas");
           canvas.width = width;
           canvas.height = height;
@@ -193,16 +230,16 @@
     for (let key in webGLTextureMap) {
       readWebTextureData(webGLTextureMap[key]);
     }
-    if (downloadCnt == originTextureMap.length) {
-      _log(`【dump texture:${downloadCnt}/${originTextureMap.length}】 success！`);
+    if (downloadCnt == originTextureArr.length) {
+      _log(`【dump texture:${downloadCnt}/${originTextureArr.length}】 success！`);
     } else {
-      _log(`【dump texture:${downloadCnt}/${originTextureMap.length}】some texture doesn't cover,plz move the camera or open the [Model-Inspector] and view the textures!`);
+      _log(`【dump texture:${downloadCnt}/${originTextureArr.length}】some texture doesn't cover,plz move the camera or open the [Model-Inspector] and view the textures!`);
     }
   }
 
   function getNameById(uid) {
     let name;
-    let texture = originTextureMap.find((t) => {
+    let texture = originTextureArr.find((t) => {
       return t.uid == uid;
     });
     if (texture) {
