@@ -4,14 +4,14 @@
 // @match       *://*.sketchfab.com/3d-models/**
 // @match       *://*.sketchfab.com/models/**
 // @grant       none
-// @version     0.0.7
+// @version     0.0.10
 // @author      krapnik
 // @description 2022/9/29 12:02:46
 // @license     MIT
 // @run-at      document-start
 // ==/UserScript==
 (function () {
-  console.log("=======SketchfabTextureDump=======");
+
   const MIN_TEXTURE_WIDTH = 256,
     MIN_TEXTURE_HEIGHT = 256;
   let _log = console.log;
@@ -21,6 +21,16 @@
   let model_id = model_name_arr[model_name_arr.length - 1];
   let downloadCnt = 0;
   let originTextureArr = [];
+  if(location.href.indexOf('sketchfab.com/3d-models/')>-1){
+    return;
+  }
+  if(window.self !== window.top){
+    setTimeout(()=>{
+      addViewBtn();
+    },3000)
+    return;
+  }
+  _log("=======SketchfabTextureDump=======");
   if (!model_id) {
     _warn("can't find model_id!");
     return;
@@ -29,15 +39,18 @@
   }
 
   window.onload = () => {
-    let results = window.prefetchedData[`/i/models/${model_id}/textures?optimized=1`].results;
-    coverTexture(results); // quality high
-    Object.defineProperty(window.prefetchedData[`/i/models/${model_id}/textures?optimized=1`],"results", {
-      get:()=>{
-        return results;
-      }
-    })
-    originTextureArr = window.prefetchedData[`/i/models/${model_id}/textures?optimized=1`].results || [];
-    addDownloadBtn();
+    try{
+      let results = window.prefetchedData[`/i/models/${model_id}/textures?optimized=1`].results;
+      coverTexture(results); // quality high
+      Object.defineProperty(window.prefetchedData[`/i/models/${model_id}/textures?optimized=1`],"results", {
+        get:()=>{
+          return results;
+        }
+      })
+      originTextureArr = window.prefetchedData[`/i/models/${model_id}/textures?optimized=1`].results || [];
+    }catch(e){
+      _warn('oops~something went wrong,u can refresh the page & try again');
+    }
   }
 
   function coverTexture(results){
@@ -68,6 +81,23 @@
     btn.onclick = dumpWebGLTextureData;
   }
 
+  function addViewBtn() {
+    let btn = document.createElement("button");
+    btn.innerHTML = "goto download";
+    btn.style.position = "absolute"
+    btn.style.top = "0"
+    btn.style.left = "0"
+    document.body.appendChild(btn);
+    btn.onclick = ()=>{
+      let link = document.createElement("a");
+      link.setAttribute("href",`https://sketchfab.com/models/${model_id}/embed?autostart=1&internal=1&tracking=0&ui_ar=0&ui_infos=0&ui_snapshots=1&ui_stop=0&ui_theatre=1&ui_watermark=0`);
+      link.setAttribute("target","_blank");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+  }
+
   let webGLTextureIdx = 0;
   let webGLTextureMap = {};
   let targetRenderingCtx = WebGLRenderingContext; // todo auto choose context
@@ -87,8 +117,8 @@
   //bindTexture
   let glBindTexture = targetRenderingCtx.prototype.bindTexture;
   targetRenderingCtx.prototype.bindTexture = function (...args) {
-    let target = args[0], texture = args[1],flag = args[2];
-    if (!flag&&texture) {
+    let target = args[0], texture = args[1];
+    if (texture) {
       texture.target = target;
     }
     glBindTexture.apply(this, args);
@@ -117,14 +147,16 @@
         (height & height - 1) === 0 &&
         texture.target === this.TEXTURE_2D
       ) {
-        if (src&&!isAllTextureCover) {
-          let textureName = getFileNameByLink(src);
+        if (src) {
+          // let textureName = getFileNameByLink(src);
           texture.src = argments.src;
           lstTexture.lst = texture.name;
           hasCoverTex++;
-          _log(`【origin texture cover】 count:${hasCoverTex},name:${textureName}`);
+          _log(`【origin texture cover】 total:${originTextureArr.length} count:${hasCoverTex}`);
           if(originTextureArr.length == hasCoverTex){
             isAllTextureCover = true;
+            _log('all files are ready! click the 【download】 button');
+            addDownloadBtn();
           }
         }
         lstTexture = texture;
@@ -233,7 +265,7 @@
     if (downloadCnt == originTextureArr.length) {
       _log(`【dump texture:${downloadCnt}/${originTextureArr.length}】 success！`);
     } else {
-      _log(`【dump texture:${downloadCnt}/${originTextureArr.length}】some texture doesn't cover,plz move the camera or open the [Model-Inspector] and view the textures!`);
+      _log(`【dump texture:${downloadCnt}/${originTextureArr.length}】oops~something went wrong,u can refresh the page & try again`);
     }
   }
 
