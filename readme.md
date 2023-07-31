@@ -1,31 +1,10 @@
-### what's this
-sketchfab model's textures export userscipt for violentmonkey/tampermonkey 
+## sketchfab research
 
----
-### how to use
-```
-open the model view link & run the script
-model view link template：https://sketchfab.com/models/[model id here!]/embed?autostart=1
-for example:
-https://sketchfab.com/3d-models/yarn-yoshi-amiibos-b9a984f3680b467e9b4a2624fec4c02c
-this model id is:
-b9a984f3680b467e9b4a2624fec4c02c
-this model view link is:
-https://sketchfab.com/models/b9a984f3680b467e9b4a2624fec4c02c/embed?autostart=1
-```
+### 前言
+一个记录sketchfab研究历程的仓库
 
-### video
-[youtube](https://www.youtube.com/watch?v=8VkO51Fnc6Q)
-[bilibili](https://www.bilibili.com/video/BV1UT411N7i8/)
+### texture
+[施工中](./1_textures/texture.md)
 
----
-### ENVIRONMENT:
-[violentmonkey 2.13.1](https://violentmonkey.github.io/)
-[chrome 105.0.5195.127](https://www.google.com/chrome/)
-
----
-### INSTALL
-[sketchfabtexturedump](https://greasyfork.org/zh-CN/scripts/452224-sketchfabtexturedump)
-
-### License ###
+### License
 MIT
