@@ -1,3 +1,38 @@
+let data = {
+    "format": "RGB",
+    "quality": 80,
+    "decodeAsync": true,
+    "pk": 198773,
+    "crossOrigin": "anonymous"
+};
+async function main(){
+    let img = await loadImage("./assets/texture.png");
+    let canvas = document.querySelector("#canvas");
+    let ctx = canvas.getContext("webgl2");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    let texture = bindTexture(ctx, img);
+    decodeTexture(ctx,data.pk,[ctx.TEXTURE_2D, 0, ctx.RGBA, ctx.RGBA, ctx.UNSIGNED_BYTE, img],false,texture,true);
+}
+
+function loadImage(url){
+    return new Promise((resolve, reject) => {
+        let img = new Image();
+        img.crossOrigin = "anonymous";
+        img.src = url;
+        img.onload = () => {
+            resolve(img);
+        }
+    });
+}
+
+function bindTexture(gl, img){
+    let texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    return texture;
+
+}
 const decodeTexture = function (gl, factor, originTexture, _isCompressed = false, webGLTexture, _flipY) {
     var o = gl.getParameter(gl.ARRAY_BUFFER_BINDING)
         , CURRENT_PROGRAM = gl.getParameter(gl.CURRENT_PROGRAM)
@@ -111,10 +146,20 @@ function f(gl) {
                 gl.bindFramebuffer(gl.FRAMEBUFFER, A),
                 gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0),
                 gl.viewport(0, 0, i, n),
-                gl.drawArrays(e.TRIANGLES, 0, 6)
+                gl.drawArrays(gl.TRIANGLES, 0, 6)
         }
         ,
         Decoder
+}
+
+function I(t, e, i) {
+    var r = t.createShader(e);
+    return delete t.shaderSource,
+    t.shaderSource(r, i),
+    delete t.compileShader,
+    t.compileShader(r),
+    t.getShaderParameter(r, t.COMPILE_STATUS) ? r : (console.log("ERROR TP: " + t.getShaderInfoLog(r)),
+    null)
 }
 
 class Texture {
